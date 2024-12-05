@@ -7,14 +7,24 @@ from app.core.cache import setup_cache
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from contextlib import asynccontextmanager
+
 
 limiter = Limiter(key_func=get_remote_address)
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize cache on startup"""
+    await setup_cache()
+    yield
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    lifespan=lifespan
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -32,12 +42,6 @@ if settings.BACKEND_CORS_ORIGINS:
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_STR)
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize cache on startup"""
-    await setup_cache()
 
 
 @app.get("/")
