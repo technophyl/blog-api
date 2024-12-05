@@ -8,6 +8,14 @@ from datetime import datetime, timedelta
 
 
 class MetricsService:
+
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self, window_size: int = 3600):  # Default 1 hour window
         self.window_size = window_size
         self.errors: Deque[dict] = deque(maxlen=window_size)
