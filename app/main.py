@@ -8,8 +8,10 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from contextlib import asynccontextmanager
+from app.services.metrics import MetricsService, MetricsMiddleware
 
 
+metrics_service = MetricsService()
 limiter = Limiter(key_func=get_remote_address)
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -28,6 +30,7 @@ app = FastAPI(
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(MetricsMiddleware, metrics_service=metrics_service)
 
 # Set up CORS middleware
 if settings.BACKEND_CORS_ORIGINS:
@@ -56,11 +59,12 @@ def root():
 
 
 @app.get("/health")
-def health_check():
-    """Health check endpoint for monitoring the API status."""
+async def health_check():
+    """Health check endpoint, includes detailed metrics"""
     return {
         "status": "healthy",
-        "api_version": "1.0.0"
+        "api_version": "1.0.0",
+        "metrics": metrics_service.get_metrics()
     }
 
 
